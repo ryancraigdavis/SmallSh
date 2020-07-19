@@ -25,6 +25,9 @@ int main(){
     char *args[512];
     bool background = false;
 
+    // So that we can later on check if the cmd is sent without an argument
+    args[0] = "\0";
+
 
     // Variables for the input
     char *line_cr = NULL;
@@ -81,33 +84,44 @@ int main(){
     bool in_set = false;
     bool out_set = false;
 
+    // Loop to skip any leading spaces
+    // If there is one, advance the pointer
+    int lead_spc_comp = strncmp(&line[line_pos]," ",1);
+    while(lead_spc_comp == 0) {
+        line = line + 1;
+        lead_spc_comp = strncmp(&line[line_pos]," ",1);
+    }
+
     // Loop to identify the command
-    while(cmd_set == false && cont == true) {
+    while(cmd_set == false && line_pos < line_input) {
+
         // Only have to check for a space, they signal the end of the command
             int spc_comp = strncmp(&line[line_pos]," ",1);
-            if (spc_comp != 0) {
+            if (spc_comp != 0 && (temp_pos + 1) < line_input) {
                 temp_pos ++;
 
             // Once the end of the command has been found, set the cmd bool to true
             // Allocate memory for cmd, copy over the string, and move the line pointer
             } else {
                 cmd_set = true;
-                cmd = malloc(temp_pos+1+1);
+                cmd = malloc(temp_pos+1);
                 strncpy(cmd, line, temp_pos);
                 line = line + temp_pos;
                 temp_pos = 0;
             }
             line_pos++;
     }
-
+   
     // In order to check if it is the end of the args, we need a temp
     // string that can check to see if the next 3 chars are " < ", " > ", and " &"
     // Temp arg and arg count are for allocating arguments to the array
+    // Space cmp str is for identifying leading spaces before the rest of the arguments
     char inp_out_comp_str[4];
     char and_comp_str[3];
     char *temp_line;
     char *temp_arg;
     int arg_count = 0;
+    char space_cmp_str[3];
 
     // Args, input, and output are all optional, the following
     // If statements identify which type the next set of statements are
@@ -115,6 +129,17 @@ int main(){
 
     while(line_pos < line_input && cont == true) {
 
+        // Within this loop, we need to first get rid of all leading spaces like before
+        // We will do this by looking for double spaces - at which point we will move on
+        strncpy(space_cmp_str, line, 2);
+        int lead_other_spc_comp = strncmp(space_cmp_str,"  ",2);
+        while(lead_other_spc_comp == 0) {
+            line = line + 1;
+            strncpy(space_cmp_str, line, 2);
+            lead_other_spc_comp = strncmp(space_cmp_str,"  ",2);
+        }
+
+        // These assign the temp line variables
         temp_line = malloc(strlen(line)+1);
         strcpy(temp_line, line);
         temp_line = line + temp_pos;
@@ -134,8 +159,19 @@ int main(){
             line = line + 3;
             line_pos = line_pos + 3;
 
+            bool lead_in_space = true;
+
             // Loop finds the location and puts it in a var
             while(in_set == false) {
+
+                // First we need another leading space loop to remove leading " "
+                // We only need to go through the loop once, hence setting lead_in_space to false
+                int lead_in_spc_comp = strncmp(&line[temp_pos]," ",1);
+                while(lead_in_spc_comp == 0 && lead_in_space == true) {
+                    line = line + 1;
+                    lead_in_spc_comp = strncmp(&line[temp_pos]," ",1);
+                }
+                lead_in_space = false;
 
                 // Only have to check for a space, they signal the end of the location
                 int spc_comp = strncmp(&line[temp_pos]," ",1);
@@ -146,7 +182,7 @@ int main(){
                 // Allocate memory for input file, copy over the string, and move the line pointer
                 } else {
                     in_set = true;
-                    input_file = malloc(temp_pos+1+1);
+                    input_file = malloc(temp_pos+1);
                     strncpy(input_file, line, temp_pos);
                     line = line + temp_pos;
                     temp_pos = 0;
@@ -161,8 +197,19 @@ int main(){
             line = line + 3;
             line_pos = line_pos + 3;
 
+            bool lead_out_space = true;
+
             // Loop finds the location and puts it in a var
             while(out_set == false) {
+
+                // First we need another leading space loop to remove leading " "
+                // We only need to go through the loop once, hence setting lead_in_space to false
+                int lead_out_spc_comp = strncmp(&line[temp_pos]," ",1);
+                while(lead_out_spc_comp == 0 && lead_out_space == true) {
+                    line = line + 1;
+                    lead_out_spc_comp = strncmp(&line[temp_pos]," ",1);
+                }
+                lead_out_space = false;
 
                 // Only have to check for a space, they signal the end of the location
                 int spc_comp = strncmp(&line[temp_pos]," ",1);
@@ -172,8 +219,7 @@ int main(){
                 // Allocate memory for output file, copy over the string, and move the line pointer
                 } else {
                     out_set = true;
-                    printf("%d\n",temp_pos);
-                    output_file = malloc(temp_pos+1+1);
+                    output_file = malloc(temp_pos+1);
                     strncpy(output_file, line, temp_pos);
                     line = line + temp_pos;
                     temp_pos = 0;
@@ -206,7 +252,7 @@ int main(){
                 // increment the arg counter and finally move the line pointer
                 } else {
                     arg_set = true;
-                    temp_arg = malloc(temp_pos+1+1);
+                    temp_arg = malloc(temp_pos+1);
                     strncpy(temp_arg, line, temp_pos);
                     args[arg_count] = strdup(temp_arg);
                     arg_count++;
@@ -220,9 +266,6 @@ int main(){
         }
 
         // Reset the arg bool
-        // memset(inp_out_comp_str,0,strlen(inp_out_comp_str));
-        // memset(and_comp_str,0,strlen(and_comp_str));
-        // memset(temp_line,0,strlen(temp_line));
         arg_set = false;
         line_pos++;
     }
@@ -241,7 +284,20 @@ int main(){
     {
         printf("%s->arg\n",args[i]);
     }
-    
+
+    // // This checks to see if the "cd" command was sent
+    // int cd_comp = strcmp(cmd,"cd");
+    // if (cd_comp == 0) {
+
+    //     // If no arguments were sent, change PWD to HOME
+    //     // Other wise set it to arg
+    //     int arg_comp = strcmp(arg[0],"\0");
+    //     if (arg_comp == 0) {
+    //         chdir(getenv("HOME"));
+    //     } else {
+    //         // code to change to relative
+    //     }
+    // }
     
     return 0;
 
