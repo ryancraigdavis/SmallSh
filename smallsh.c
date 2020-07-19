@@ -33,7 +33,7 @@ int main(){
     char *line_cr = NULL;
     ssize_t line_input;
     size_t input_len = 2048;
-    char *line;
+    char *line = NULL;
 
     // Print the prompt and flush the output
     printf("%s ",":");
