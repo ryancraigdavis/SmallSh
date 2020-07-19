@@ -201,13 +201,15 @@ int main(){
                 if (spc_comp != 0) {
                     temp_pos ++;
 
-                // Once the end of the command has been found, set the input bool to true
-                // Allocate memory for input file, copy over the string, and move the line pointer
+                // Once the end of the command has been found, set the arg bool to true
+                // Allocate memory for temp arg, copy over the string, put it in the array
+                // increment the arg counter and finally move the line pointer
                 } else {
                     arg_set = true;
                     temp_arg = malloc(temp_pos+1+1);
                     strncpy(temp_arg, line, temp_pos);
-                    
+                    args[arg_count] = strdup(temp_arg);
+                    arg_count++;
                     line = line + temp_pos;
                     temp_pos = 0;
                     line_pos--;
@@ -217,7 +219,7 @@ int main(){
 
         }
 
-        // Reset the strings
+        // Reset the arg bool
         // memset(inp_out_comp_str,0,strlen(inp_out_comp_str));
         // memset(and_comp_str,0,strlen(and_comp_str));
         // memset(temp_line,0,strlen(temp_line));
@@ -225,7 +227,6 @@ int main(){
         line_pos++;
     }
 
-    // printf("%s\n",line);
     printf("%s->cmd\n",cmd);
     if (in_set == true)
     {
@@ -234,6 +235,11 @@ int main(){
     if (out_set == true)
     {
         printf("%s->out\n",output_file);
+    }
+
+    for (int i = 0; i < arg_count; ++i)
+    {
+        printf("%s->arg\n",args[i]);
     }
     
     
