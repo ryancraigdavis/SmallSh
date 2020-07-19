@@ -33,7 +33,7 @@ int main(){
     char *line_cr = NULL;
     ssize_t line_input;
     size_t input_len = 2048;
-    char *line = NULL;
+    char *line;
 
     // Print the prompt and flush the output
     printf("%s ",":");
@@ -41,7 +41,7 @@ int main(){
 
     // Read in the users input and copy it to line w/o carriage return
     line_input = getline(&line_cr, &input_len, stdin);
-    line = malloc(line_input+2);
+    //line = malloc(line_input+2);
     strncpy(line, line_cr, strlen(line_cr)-1);
 
     // This checks to see if the statement written is a comment
