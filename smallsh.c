@@ -41,7 +41,8 @@ int main(){
 
     // Read in the users input and copy it to line w/o carriage return
     line_input = getline(&line_cr, &input_len, stdin);
-    line = malloc(line_input+1);
+    //line = malloc(line_input+1);
+    line = malloc(strlen(line_cr)+1);
     strncpy(line, line_cr, strlen(line_cr)-1);
 
     // This checks to see if the statement written is a comment
