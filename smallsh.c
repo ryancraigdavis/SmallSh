@@ -30,20 +30,24 @@ int main(){
 
 
     // Variables for the input
-    char *line_cr = NULL;
+    //char *line_cr;
+    char *line;
     ssize_t line_input;
     size_t input_len = 2048;
-    char *line;
+    //char *line;
+    line = (char *) malloc (input_len);
+    //line_cr = (char *) malloc (input_len);
 
     // Print the prompt and flush the output
     printf("%s ",":");
     fflush(stdout);
 
     // Read in the users input and copy it to line w/o carriage return
-    line_input = getline(&line_cr, &input_len, stdin);
+    line_input = getline(&line, &input_len, stdin);
+    //line_input = getline(&line_cr, &input_len, stdin);
     //line = malloc(line_input+1);
-    line = malloc(strlen(line_cr)+1);
-    strncpy(line, line_cr, strlen(line_cr)-1);
+    //line = malloc(strlen(line_cr)+1);
+    //memcpy(line, line_cr, strlen(line_cr)-1);
 
     // This checks to see if the statement written is a comment
     // If so, skips the next while loop
