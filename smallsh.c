@@ -48,6 +48,17 @@ int main(){
     memcpy(line, line_cr, strlen(line_cr)-1);
     free(line_cr);
 
+    // // Variables for the input
+    // char line[2048];
+
+    // // Print the prompt and flush the output
+    // printf(": ");
+    // fflush(stdout);
+
+    // // Read in the users input and copy it to line w/o carriage return
+    // fgets(line, 2048, stdin);
+    // printf("%lu\n",strlen(line));
+
     // This checks to see if the statement written is a comment
     // If so, skips the next while loop
     bool comment = false;
