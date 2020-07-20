@@ -19,9 +19,9 @@ int main(){
     // Cmd is the command to be executed, input and output files, and args - which is an
     // array of all of the arguments that can be passed in and a bool for whether or not
     // the command should run in the background
-    char *cmd;
-    char *input_file;
-    char *output_file;
+    char *cmd = NULL;
+    char *input_file = NULL;
+    char *output_file = NULL;
     char *args[512];
     bool background = false;
 
@@ -86,7 +86,7 @@ int main(){
         cont = false;
     }
     int cmd_pos = 0;
-    long temp_pos = 0;
+    int temp_pos = 0;
     size_t m_size = 100;
 
     // Checks to see if an & is at the end of the line, and sets the background var
@@ -132,6 +132,7 @@ int main(){
             } else {
                 cmd_set = true;
                 cmd = malloc(temp_pos+1);
+                memset(cmd, 0, temp_pos+1);
                 strncpy(cmd, line, temp_pos);
                 line = line + temp_pos;
                 temp_pos = 0;
@@ -210,6 +211,7 @@ int main(){
                 } else {
                     in_set = true;
                     input_file = malloc(temp_pos+1);
+                    memset(input_file, 0, temp_pos+1);
                     strncpy(input_file, line, temp_pos);
                     line = line + temp_pos;
                     temp_pos = 0;
@@ -247,6 +249,7 @@ int main(){
                 } else {
                     out_set = true;
                     output_file = malloc(temp_pos+1);
+                    memset(output_file, 0, temp_pos+1);
                     strncpy(output_file, line, temp_pos);
                     line = line + temp_pos;
                     temp_pos = 0;
@@ -280,7 +283,6 @@ int main(){
                 } else {
                     arg_set = true;
                     temp_arg = malloc(temp_pos+1);
-                    //temp_arg = (char *)malloc((temp_pos)+1)*sizeof(char));
                     memset(temp_arg, 0, temp_pos+1);
                     strncpy(temp_arg, line, temp_pos);
                     args[arg_count] = strdup(temp_arg);
