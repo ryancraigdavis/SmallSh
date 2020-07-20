@@ -114,17 +114,17 @@ int main(){
 
     // Loop to skip any leading spaces
     // If there is one, advance the pointer
-    int lead_spc_comp = strncmp(&line[line_pos]," ",1);
+    int lead_spc_comp = strncmp(line[line_pos]," ",1);
     while(lead_spc_comp == 0) {
         line = line + 1;
-        lead_spc_comp = strncmp(&line[line_pos]," ",1);
+        lead_spc_comp = strncmp(line[line_pos]," ",1);
     }
 
     // Loop to identify the command
     while(cmd_set == false && line_pos < line_input) {
 
         // Only have to check for a space, they signal the end of the command
-            int spc_comp = strncmp(&line[line_pos]," ",1);
+            int spc_comp = strncmp(line[line_pos]," ",1);
             if (spc_comp != 0 && (temp_pos + 1) < line_input) {
                 temp_pos ++;
 
@@ -205,7 +205,7 @@ int main(){
 
                 // First we need another leading space loop to remove leading " "
                 // We only need to go through the loop once, hence setting lead_in_space to false
-                int lead_in_spc_comp = strncmp(&line[temp_pos]," ",1);
+                int lead_in_spc_comp = strncmp(line[temp_pos]," ",1);
                 while(lead_in_spc_comp == 0 && lead_in_space == true) {
                     line = line + 1;
                     lead_in_spc_comp = strncmp(&line[temp_pos]," ",1);
@@ -213,7 +213,7 @@ int main(){
                 lead_in_space = false;
 
                 // Only have to check for a space, they signal the end of the location
-                int spc_comp = strncmp(&line[temp_pos]," ",1);
+                int spc_comp = strncmp(line[temp_pos]," ",1);
                 if (spc_comp != 0) {
                     temp_pos ++;
 
@@ -244,7 +244,7 @@ int main(){
 
                 // First we need another leading space loop to remove leading " "
                 // We only need to go through the loop once, hence setting lead_in_space to false
-                int lead_out_spc_comp = strncmp(&line[temp_pos]," ",1);
+                int lead_out_spc_comp = strncmp(line[temp_pos]," ",1);
                 while(lead_out_spc_comp == 0 && lead_out_space == true) {
                     line = line + 1;
                     lead_out_spc_comp = strncmp(&line[temp_pos]," ",1);
@@ -252,7 +252,7 @@ int main(){
                 lead_out_space = false;
 
                 // Only have to check for a space, they signal the end of the location
-                int spc_comp = strncmp(&line[temp_pos]," ",1);
+                int spc_comp = strncmp(line[temp_pos]," ",1);
                 if (spc_comp != 0) {
                     temp_pos++;
                 // Once the end of the command has been found, set the output bool to true
@@ -284,7 +284,7 @@ int main(){
             while(arg_set == false) {
 
                 // Only have to check for a space, they signal the end of the location
-                int spc_comp = strncmp(&line[temp_pos]," ",1);
+                int spc_comp = strncmp(line[temp_pos]," ",1);
                 if (spc_comp != 0) {
                     temp_pos ++;
 
