@@ -34,7 +34,7 @@ int main(){
     char *line;
     ssize_t line_input;
     size_t input_len = 2048;
-    line_cr = (char *) malloc (input_len);
+    line_cr = (char *) malloc (input_len + 1);
 
     // Print the prompt and flush the output
     printf(": ");
@@ -42,7 +42,9 @@ int main(){
 
     // Read in the users input and copy it to line w/o carriage return
     line_input = getline(&line_cr, &input_len, stdin);
-    line = malloc(line_input+1);
+    line = malloc(line_input);
+    printf("%lu\n",strlen(line_cr));
+    printf("%zd\n",line_input);
     memcpy(line, line_cr, strlen(line_cr)-1);
     free(line_cr);
 
