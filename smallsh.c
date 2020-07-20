@@ -37,13 +37,14 @@ int main(){
     line_cr = (char *) malloc (input_len);
 
     // Print the prompt and flush the output
-    printf("%s ",":");
+    printf(": ");
     fflush(stdout);
 
     // Read in the users input and copy it to line w/o carriage return
     line_input = getline(&line_cr, &input_len, stdin);
     line = malloc(line_input+1);
     memcpy(line, line_cr, strlen(line_cr)-1);
+    free(line_cr);
 
     // This checks to see if the statement written is a comment
     // If so, skips the next while loop
