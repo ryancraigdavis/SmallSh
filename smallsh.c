@@ -65,6 +65,7 @@ int main(){
     memset(line, 0, strlen(line_cr));
 
     memcpy(line, line_cr, strlen(line_cr)-1);
+    free(line_cr);
     int line_input = strlen(line);
 
     // This checks to see if the statement written is a comment
@@ -85,13 +86,16 @@ int main(){
         cont = false;
     }
     int cmd_pos = 0;
-    int temp_pos = 0;
+    long temp_pos = 0;
     size_t m_size = 100;
 
     // Checks to see if an & is at the end of the line, and sets the background var
     // First creates a duplicate string to manipulate
-    char *and_str;
-    and_str = malloc(strlen(line)+1);
+    char *and_str = NULL;
+    //and_str = malloc(strlen(line)+1);
+    and_str = (char *)malloc((strlen(line)+1)*sizeof(char));
+    memset(and_str, 0, strlen(line)+1);
+
     strcpy(and_str, line);
     and_str = line + strlen(line) - 2;
     
@@ -142,7 +146,7 @@ int main(){
     char inp_out_comp_str[4];
     char and_comp_str[3];
     char *temp_line;
-    char *temp_arg;
+    char *temp_arg = NULL;
     int arg_count = 0;
     char space_cmp_str[3];
 
@@ -276,6 +280,8 @@ int main(){
                 } else {
                     arg_set = true;
                     temp_arg = malloc(temp_pos+1);
+                    //temp_arg = (char *)malloc((temp_pos)+1)*sizeof(char));
+                    memset(temp_arg, 0, temp_pos+1);
                     strncpy(temp_arg, line, temp_pos);
                     args[arg_count] = strdup(temp_arg);
                     arg_count++;
