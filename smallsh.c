@@ -301,8 +301,6 @@ int main(){
         line_pos++;
     }
 
-    free(line);
-
     printf("%s->cmd\n",cmd);
     if (in_set == true)
     {
