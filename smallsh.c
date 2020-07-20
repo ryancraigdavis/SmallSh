@@ -61,7 +61,8 @@ int main(){
     fgets(line_cr, 2048, stdin);
 
     char *line = NULL;
-    //line = (char *)malloc((strlen(line_cr))*sizeof(char));
+    line = (char *)malloc((strlen(line_cr))*sizeof(char));
+    memset(line, 0, strlen(line_cr));
 
     memcpy(line, line_cr, strlen(line_cr)-1);
     int line_input = strlen(line);
