@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 #include <stdbool.h>
 #include <dirent.h>
+#include <limits.h>
 
 
 int main(){
@@ -130,9 +131,19 @@ int main(){
             // Once the end of the command has been found, set the cmd bool to true
             // Allocate memory for cmd, copy over the string, and move the line pointer
             } else {
+
+                // If only a command is entered, so length of str is currently only
+                // +1 of temp_pos, increment temp_pos by 1
+                if (strlen(line) - 1 == temp_pos) {
+                    temp_pos++;
+                }
+
                 cmd_set = true;
                 cmd = malloc(temp_pos+1);
                 memset(cmd, 0, temp_pos+1);
+                printf("%d\n",temp_pos);
+                printf("%lu\n",strlen(line));
+                printf("%s\n",line);
                 strncpy(cmd, line, temp_pos);
                 line = line + temp_pos;
                 temp_pos = 0;
@@ -316,19 +327,53 @@ int main(){
         printf("%s->arg\n",args[i]);
     }
 
-    // // This checks to see if the "cd" command was sent
-    // int cd_comp = strcmp(cmd,"cd");
-    // if (cd_comp == 0) {
+    // This checks to see if the "cd" command was sent
 
-    //     // If no arguments were sent, change PWD to HOME
-    //     // Other wise set it to arg
-    //     int arg_comp = strcmp(arg[0],"\0");
-    //     if (arg_comp == 0) {
-    //         chdir(getenv("HOME"));
-    //     } else {
-    //         // code to change to relative
-    //     }
-    // }
+    int cd_comp = strcmp(cmd,"cd");
+    if (cd_comp == 0) {
+
+        // Used this answer to understand getcwd
+        // https://stackoverflow.com/questions/298510/how-to-get-the-current-directory-in-a-c-program
+        char cwd[PATH_MAX];
+
+        // If no arguments were sent, change PWD to HOME
+        // Other wise set it to arg
+        int arg_comp = strcmp(args[0],"\0");
+        if (arg_comp == 0) {
+            chdir(getenv("HOME"));
+        } else {
+
+            // If the arg starts with a period, then the relative command is formatted
+            // and we simply must pass it through
+            int cd_rel_comp = strncmp(args[0],".",1);
+            int abs_rel_comp = strncmp(args[0],"/",1);
+            if (cd_rel_comp == 0) {
+                chdir(args[0]);
+
+            // If it doesn't start with a period, we need to check to see if it is
+            // an absolute path, which should start with a "/"
+            } else if (abs_rel_comp == 0) {
+                chdir(args[0]);
+
+            // Otherwise, it is a relative path but we need to put in the "./"
+            // Then we can change the directory
+            } else {
+
+                // New var relative_dir - we will concatenate args[0] to "./"
+                // Then free the memory
+                char *relative_dir = NULL;
+                relative_dir = (char *)malloc((strlen(args[0])+3)*sizeof(char));
+                memset(relative_dir, 0, strlen(args[0])+3);
+                memcpy(relative_dir,"./",2);
+                strcat(relative_dir,args[0]);
+                chdir(relative_dir);
+                free(relative_dir);
+            }
+        }
+    printf("%s\n",getcwd(cwd, sizeof(cwd)));
+    }
+
+    
     
     return 0;
 
