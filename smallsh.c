@@ -13,13 +13,14 @@
 #include <stdbool.h>
 #include <dirent.h>
 #include <limits.h>
-
+#include <signal.h>
 
 int main(){
     // a bool for whether or not the shell should exit
     bool exit_cmd = false;
 
-    // The built-in status int
+    // Get status is used to see if WIFEXITED is true; the built-in status int
+    int get_status;
     int status = 0;
 
     while(exit_cmd == false) {
@@ -393,7 +394,6 @@ int main(){
                     free(relative_dir);
                 }
             }
-        printf("%s\n",getcwd(cwd, sizeof(cwd)));
 
         // This is the exit built in command - if exit is run, then call this
         // which ends the while loop
@@ -403,7 +403,7 @@ int main(){
         // This prints out the most recent status
         } else if (status_comp == 0) {
             // Print out the most recent value of status
-            printf("%d\n",status);
+            printf("Exit value %d\n",status);
         
         // If none of the commands were seen above, then the command is a linux cmd
         // We need to fork of a child and run the command
@@ -420,20 +420,59 @@ int main(){
 
             // If fork is successful, the value of pid will be 0 and the command will be executed
             // Code adapted from class lectures
-            int childStatus;
             pid_t childPid = fork();
             if(childPid == 0){
 
+                // Putting the input file into standard input
+                if (in_set == true) {
+                    int input_file_int = open(input_file,O_RDONLY);
+                    printf("%s\n","huh");
+                    //int in_check = dup2(input_file_int, 1);
+                    dup2(input_file_int, 1);
+                    //If the dup2 failed, set status to 1
+                    // if (in_check == -1) {
+                    //     printf("%s\n","didnt work");
+                    //     status = 1;
+                    // }
+                }
+
+                // Putting the output file into standard output
+                if (out_set == true) {
+                    int output_file_int = open(output_file,O_WRONLY);
+                    printf("%s\n","huh");
+                    int out_check = dup2(output_file_int, 1);
+                    // If the dup2 failed, set status to 1
+                    if (out_check == -1) {
+                        printf("%s\n","didnt work");
+                        status = 1;
+                        printf("%d\n",status);
+                    }
+                }
+
                 // Child process running the exec command
-                int roger = execvp(cmd,args);
+                int cmd_status = execvp(cmd,args);
+
+                // If cmd_status is -1, that's because a bad or non-existant command was sent
+                // Print an error message and terminate the process
+                if (cmd_status == -1) {
+                    printf("%s: no such file or directory\n",cmd);
+                    kill(getpid(),SIGTERM);
+                }
 
             } else{
 
                 // Parent process - waits for the child to finish
+                int childStatus;
+                printf("%d child pid\n",childPid);
                 waitpid(childPid, &childStatus, 0);
+
+                if ( WIFEXITED(childStatus) ) {
+                    status = WEXITSTATUS(childStatus);
+                    printf("Status: %d\n",status);
+                }
+                
             
             }
-            printf("%d\n",childStatus);
 
         }
     }
