@@ -18,10 +18,13 @@
 // Signal Handler for Sig Stop - adapted from the lecture
 void int_handle(int sig_int){
     char get_pid[15];
+    char str_sig[2];
     sprintf(get_pid, "%d", getpid());
+    sprintf(str_sig, "%d", sig_int);
     char* message = "Caught SIGINT, sleeping for 10 seconds\n";
   // We are using write rather than printf
-    write(STDOUT_FILENO, get_pid, 15);
+    write(STDOUT_FILENO, get_pid, strlen(get_pid));
+    write(STDOUT_FILENO, str_sig, strlen(get_pid));
 }
 
 
@@ -186,9 +189,13 @@ int main(){
 
         }
 
+        // If the & was given - make that NULL as well
         // The next slot in the args array must be NULL
-        args[args_count] = NULL;
- 
+        if (and_set == true && args_count > 1) {
+            args[args_count-1] = NULL;
+        } else {
+            args[args_count] = NULL;
+        }
 
         // These statements initialize the line vars if they weren't already
         if (cmd == NULL) {
@@ -204,20 +211,20 @@ int main(){
             memset(output_file, 0, 2);
         }
 
-        if (cmd_set == true) {
-            printf("%s->cmd\n",cmd);
-        }
-        if (in_set == true) {
-            printf("%s->in\n",input_file);
-        }
-        if (out_set == true) {
-            printf("%s->out\n",output_file);
-        }
+        // if (cmd_set == true) {
+        //     printf("%s->cmd\n",cmd);
+        // }
+        // if (in_set == true) {
+        //     printf("%s->in\n",input_file);
+        // }
+        // if (out_set == true) {
+        //     printf("%s->out\n",output_file);
+        // }
 
-        for (int i = 0; i < args_count; ++i)
-        {
-            printf("%s->arg\n",args[i]);
-        }
+        // for (int i = 0; i < args_count; ++i)
+        // {
+        //     printf("%s->arg\n",args[i]);
+        // }
 
         // This checks to see what command was sent
         // First looking at comments and built-in commands
@@ -290,49 +297,80 @@ int main(){
             // If fork is successful, the value of pid will be 0 and the command will be executed
             pid_t childPid = fork();
             if(childPid == 0){
+
                 // Putting the input file into standard input
                 if (in_set == true) {
-                    int input_file_int = open(input_file,O_RDONLY);
-                    printf("%s\n","huh");
-                    int in_check = dup2(input_file_int, 1);
 
-                    //If the dup2 failed, set status to 1
-                    if (in_check == -1) {
-                        printf("%s\n","didnt work");
+                    // Open source file
+                    int source_file = open(input_file, O_RDONLY);
+                    if (source_file == -1) { 
+                        printf("cannot open %s for input\n",input_file);
+                        fflush(stdout);
                         status = 1;
+                        exit(1);
+                    }
+
+                    // Redirect stdin to source file
+                    int source_result = dup2(source_file, 0);
+                    if (source_result == -1) { 
+                        printf("cannot open %s for input\n",input_file);
+                        fflush(stdout);
+                        status = 1;
+                        exit(2);
                     }
                 }
 
                 // Putting the output file into standard output
                 if (out_set == true) {
-                    int output_file_int = open(output_file,O_WRONLY);
-                    printf("%s\n","huh");
-                    int out_check = dup2(output_file_int, 1);
-                    
-                    // If the dup2 failed, set status to 1
-                    if (out_check == -1) {
-                        printf("%s\n","didnt work");
+
+                    // Open destination file
+                    int dest_file = open(output_file, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+                    if (dest_file == -1) { 
+                        printf("cannot open %s for output\n",output_file);
+                        fflush(stdout);
                         status = 1;
-                        printf("%d\n",status);
+                        exit(1);
+                    }
+
+                    // Redirect stdout to source file
+                    int dest_result = dup2(dest_file, 1);
+                    if (dest_result == -1) { 
+                        printf("cannot open %s for output\n",output_file);
+                        fflush(stdout);
+                        status = 1;
+                        exit(2);
                     }
                 }
 
 
                 // Child process running the exec command
                 int cmd_status = execvp(cmd,args);
-                
 
                 // If cmd_status is -1, that's because a bad or non-existant command was sent
                 // Terminates the process
                 if (cmd_status == -1) {
                     kill(getpid(),SIGTERM);
                 }
+            }
 
+            // If the & was included, this will now run in the background
+            if (and_set == true) {
+                printf("background pid is %d\n",childPid);
+                fflush(stdout);
+                int bgChildStatus;
+                waitpid(childPid, &bgChildStatus, WNOHANG);
+                if (WIFEXITED(bgChildStatus)) {
+                    int bgStatus = WEXITSTATUS(bgChildStatus);
+                //Print an error message and set status to 1
+
+                // need to redirect stdin and stdout
+                }
+
+            // If no & was included, parent will wait for completion
             } else{
 
                 // Parent process - waits for the child to finish
                 int childStatus;
-                printf("%d child pid\n",childPid);
                 waitpid(childPid, &childStatus, 0);
 
                 // If the command finishes successfully, status is 0
@@ -342,7 +380,9 @@ int main(){
                 //Print an error message and set status to 1
                 } else {
                     printf("%s: no such file or directory\n",cmd);
+                    fflush(stdout);
                     status = 1;
+                    //printf("Child %d exited abnormally due to signal %d\n", childPid, WTERMSIG(childStatus));
                 }
                 
             
