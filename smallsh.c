@@ -337,23 +337,23 @@ int main(){
             memset(output_file, 0, 2);
         }
 
-        if (cmd_set == true)
-        {
-            printf("%s->cmd\n",cmd);
-        }
-        if (in_set == true)
-        {
-            printf("%s->in\n",input_file);
-        }
-        if (out_set == true)
-        {
-            printf("%s->out\n",output_file);
-        }
+        // if (cmd_set == true)
+        // {
+        //     printf("%s->cmd\n",cmd);
+        // }
+        // if (in_set == true)
+        // {
+        //     printf("%s->in\n",input_file);
+        // }
+        // if (out_set == true)
+        // {
+        //     printf("%s->out\n",output_file);
+        // }
 
-        for (int i = 0; i < arg_count; ++i)
-        {
-            printf("%s->arg\n",args[i]);
-        }
+        // for (int i = 0; i < arg_count; ++i)
+        // {
+        //     printf("%s->arg\n",args[i]);
+        // }
 
         // This checks to see what command was sent
         // First looking at comments and built-in commands
@@ -431,7 +431,7 @@ int main(){
                 // Putting the input file into standard input
                 if (in_set == true) {
                     int input_file_int = open(input_file,O_RDONLY);
-                    printf("%s\n","huh");
+                    // printf("%s\n","huh");
                     //int in_check = dup2(input_file_int, 1);
                     dup2(input_file_int, 1);
                     //If the dup2 failed, set status to 1
@@ -444,13 +444,13 @@ int main(){
                 // Putting the output file into standard output
                 if (out_set == true) {
                     int output_file_int = open(output_file,O_WRONLY);
-                    printf("%s\n","huh");
+                    // printf("%s\n","huh");
                     int out_check = dup2(output_file_int, 1);
                     // If the dup2 failed, set status to 1
                     if (out_check == -1) {
-                        printf("%s\n","didnt work");
+                        // printf("%s\n","didnt work");
                         status = 1;
-                        printf("%d\n",status);
+                        // printf("%d\n",status);
                     }
                 }
 
@@ -468,7 +468,7 @@ int main(){
 
                 // Parent process - waits for the child to finish
                 int childStatus;
-                printf("%d child pid\n",childPid);
+                // printf("%d child pid\n",childPid);
                 waitpid(childPid, &childStatus, 0);
 
                 // If the command finishes successfully, status is 0
