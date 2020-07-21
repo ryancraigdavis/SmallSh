@@ -14,14 +14,14 @@
 #include <dirent.h>
 #include <limits.h>
 #include <signal.h>
-#include <sys/wait.h>
 
 // Signal Handler for Sig Stop - adapted from the lecture
 void int_handle(int sig_int){
+    char get_pid[15];
+    sprintf(get_pid, "%d", getpid());
     char* message = "Caught SIGINT, sleeping for 10 seconds\n";
   // We are using write rather than printf
-    write(STDOUT_FILENO, message, 40);
-    sleep(10);
+    write(STDOUT_FILENO, get_pid, 15);
 }
 
 
@@ -47,281 +47,148 @@ int main(){
         char *input_file = NULL;
         char *output_file = NULL;
         char *args[512];
-        bool background = false;
+        char *line_args[512];
 
-        // So that we can later on check if the cmd is sent without an argument
-        args[0] = "\0";
+        // Counters for the loops that delimit the input and insert args
+        int main_count = 0;
+        int args_count = 0;
+        int in_int = 0;
+        int out_int = 0;
+        int and_int = 0;
 
-        // Initialize the rest of the elements of args to NULL
-        for (int i = 1; i < 512; ++i) {
-            args[i] = NULL;
-        }
+        // Booleans that tell whether an arg exists
+        bool cmd_set = false;
+        bool no_args = false;
+        bool in_set = false;
+        bool out_set = false;
+        bool and_set = false;
+        bool comment = false;
+        bool blank_line = false;
 
         // Variables for the input
         char *line_cr = NULL;
         line_cr = (char *)malloc(2048*sizeof(char));
-
-        // Print the prompt and flush the output
+        
         printf(": ");
         fflush(stdout);
 
         // Read in the users input and copy it to line w/o carriage return
         fgets(line_cr, 2048, stdin);
+        
+        // Get the PID
+        char get_pid[15];
+        sprintf(get_pid, "%d", getpid());
 
+        // Initialize
         char *line = NULL;
         line = (char *)malloc((strlen(line_cr))*sizeof(char));
         memset(line, 0, strlen(line_cr));
-
         memcpy(line, line_cr, strlen(line_cr)-1);
-        free(line_cr);
-        int line_input = strlen(line);
 
-        // This checks to see if the statement written is a comment
-        // Also checks to see if the statement was a blank line
-        // If so, skips the next 2 while loops
-        bool blank_line = false;
-        bool comment = false;
-        bool cont = true;
+        // Checking to see if a comment was sent
         int comment_comp = strncmp(&line[0],"#",1);
         if (comment_comp == 0) {
             comment = true;
-            cont = false;
         }
 
+        // Checking to see if the input is a blank line
         if (strlen(line) == 0) {
             blank_line = true;
-            cont = false;
         }
 
-        // Line position checks the position of the char in the input string
-        // Temp string is a holder for building the various parts of the input
-        // m_size is for allocating memory for each arg put into the args array
-        int line_pos = 0;
-        int cmd_pos = 0;
-        int temp_pos = 0;
-        size_t m_size = 100;
+        // This loop goes through each argument separated by spaces
+        // and puts it into the line args array making notes of the position
+        // for assigning the args later
+        char* token = strtok(line, " ");
+        while(token != NULL && comment == false && blank_line == false) {
+            line_args[main_count] = strdup(token);
 
-        // Checks to see if an & is at the end of the line, and sets the background var
-        // First creates a duplicate string to manipulate
-        char *and_str = NULL;
-        //and_str = malloc(strlen(line)+1);
-        and_str = (char *)malloc((strlen(line)+1)*sizeof(char));
-        memset(and_str, 0, strlen(line)+1);
-
-        strcpy(and_str, line);
-        and_str = line + strlen(line) - 2;
-        
-        // If it does end with & - then set background to true
-        int and_comp_top = strncmp(and_str," &",3);
-        if (and_comp_top == 0) {
-            background = true;
-        }
-
-        // Booleans for checking if the cmd, inputs, outputs have been found in the input
-        bool cmd_set = false;
-        bool arg_set = false;
-        bool in_set = false;
-        bool out_set = false;
-
-        // Loop to skip any leading spaces
-        // If there is one, advance the pointer
-        int lead_spc_comp = strncmp(&line[line_pos]," ",1);
-        while(lead_spc_comp == 0) {
-            line = line + 1;
-            lead_spc_comp = strncmp(&line[line_pos]," ",1);
-        }
-
-        // Loop to identify the command
-        while(cmd_set == false && line_pos < line_input && cont == true) {
-
-            // Only have to check for a space, they signal the end of the command
-                int spc_comp = strncmp(&line[line_pos]," ",1);
-                if (spc_comp != 0 && (temp_pos + 1) < line_input) {
-                    temp_pos ++;
-
-                // Once the end of the command has been found, set the cmd bool to true
-                // Allocate memory for cmd, copy over the string, and move the line pointer
-                } else {
-
-                    // If only a command is entered, so length of str is currently only
-                    // +1 of temp_pos, increment temp_pos by 1
-                    if (strlen(line) - 1 == temp_pos) {
-                        temp_pos++;
-                    }
-
-                    cmd_set = true;
-                    cmd = malloc(temp_pos+1);
-                    memset(cmd, 0, temp_pos+1);
-                    strncpy(cmd, line, temp_pos);
-                    line = line + temp_pos;
-                    temp_pos = 0;
-
-                    // Finally we must put the cmd into the first arg of the array
-                    args[0] = strdup(cmd);
+            // These are the symbol comparisons
+            // Input
+            int in_cmp = strcmp(token,"<");
+            if(in_cmp == 0){
+                in_int = main_count;
+                in_set = true;
+                if (in_int  == 1) {
+                    no_args = true;
                 }
-                line_pos++;
-        }
-       
-        // In order to check if it is the end of the args, we need a temp
-        // string that can check to see if the next 3 chars are " < ", " > ", and " &"
-        // Temp arg and arg count are for allocating arguments to the array
-        // Space cmp str is for identifying leading spaces before the rest of the arguments
-        char inp_out_comp_str[4];
-        char and_comp_str[3];
-        char *temp_line;
-        char *temp_arg = NULL;
-        int arg_count = 1;
-        char space_cmp_str[3];
-
-        // Args, input, and output are all optional, the following
-        // If statements identify which type the next set of statements are
-        // and uses the a while loop to pull them out of line
-
-        while(line_pos < line_input && cont == true) {
-
-            // Within this loop, we need to first get rid of all leading spaces like before
-            // We will do this by looking for double spaces - at which point we will move on
-            strncpy(space_cmp_str, line, 2);
-            int lead_other_spc_comp = strncmp(space_cmp_str,"  ",2);
-            while(lead_other_spc_comp == 0) {
-                line = line + 1;
-                strncpy(space_cmp_str, line, 2);
-                lead_other_spc_comp = strncmp(space_cmp_str,"  ",2);
             }
 
-            // These assign the temp line variables
-            temp_line = malloc(strlen(line)+1);
-            strcpy(temp_line, line);
-            temp_line = line + temp_pos;
-
-            // Copy sub string over for checks
-            strncpy(inp_out_comp_str, temp_line, 3);
-            strncpy(and_comp_str, temp_line, 2);
-
-            // Comparisons for checking the next 2-3 characters
-            int inp_comp = strncmp(inp_out_comp_str," < ",3);
-            int out_comp = strncmp(inp_out_comp_str," > ",3);
-            int and_comp = strncmp(and_comp_str," &",2);
-
-            if (inp_comp == 0) {
-
-                // Move pointer up 3 slots
-                line = line + 3;
-                line_pos = line_pos + 3;
-
-                bool lead_in_space = true;
-
-                // Loop finds the location and puts it in a var
-                while(in_set == false) {
-
-                    // First we need another leading space loop to remove leading " "
-                    // We only need to go through the loop once, hence setting lead_in_space to false
-                    int lead_in_spc_comp = strncmp(&line[temp_pos]," ",1);
-                    while(lead_in_spc_comp == 0 && lead_in_space == true) {
-                        line = line + 1;
-                        lead_in_spc_comp = strncmp(&line[temp_pos]," ",1);
-                    }
-                    lead_in_space = false;
-
-                    // Only have to check for a space, they signal the end of the location
-                    int spc_comp = strncmp(&line[temp_pos]," ",1);
-                    if (spc_comp != 0) {
-                        temp_pos ++;
-
-                    // Once the end of the command has been found, set the input bool to true
-                    // Allocate memory for input file, copy over the string, and move the line pointer
-                    } else {
-                        in_set = true;
-                        input_file = malloc(temp_pos+1);
-                        memset(input_file, 0, temp_pos+1);
-                        strncpy(input_file, line, temp_pos);
-                        line = line + temp_pos;
-                        temp_pos = 0;
-                        line_pos--;
-                    }
-                    line_pos++;
+            // Output
+            int out_cmp = strcmp(token,">");
+            if(out_cmp == 0){
+                out_int = main_count;
+                out_set = true;
+                if (out_int  == 1) {
+                    no_args = true;
                 }
+            }
 
-            } else if (out_comp == 0) {
+            // & for background processes
+            int and_cmp = strcmp(token,"&");
+            if(and_cmp == 0){
+                and_int = main_count;
+                and_set = true;
+                if (and_int == 1) {
+                    no_args = true;
+                }
+            }
+
+            // Increment main count and move to next delimiter
+            main_count++;
+            token = strtok(NULL, " ");
+        }
+
+        // Final check to see if there are args after the command
+        if (main_count == 1) {
+            no_args = true;
+        }
+
+        // Now go through and insert the line args into their various variables
+        for (int i = 0; i < main_count; ++i) {
+            if (i == 0) {
+
+                // First line_arg is the command, copy it to the array
+                cmd = (char *)malloc((strlen(line_args[i])+1)*sizeof(char));
+                memset(cmd, 0, strlen(line_args[i])+1);
+                strncpy(cmd, line_args[i], strlen(line_args[i]));
+                cmd_set = true;
                 
-                // Move pointer up 3 slots
-                line = line + 3;
-                line_pos = line_pos + 3;
+                // Copy it to the first arg spot as well and increase arg count
+                args[i] = (char *)malloc((strlen(line_args[i])+1)*sizeof(char));
+                memset(args[i], 0, strlen(line_args[i])+1);
+                args[i] = strdup(line_args[i]);
+                args_count++;
 
-                bool lead_out_space = true;
+            // If i is the input int then the next line arg is the input file
+            // Also no_args is set to true as there are no more arguments       
+            } else if (i == in_int) {
+                input_file = (char *)malloc((strlen(line_args[i+1])+1)*sizeof(char));
+                memset(input_file, 0, strlen(line_args[i+1])+1);
+                strncpy(input_file, line_args[i+1], strlen(line_args[i+1]));
+                no_args = true;
 
-                // Loop finds the location and puts it in a var
-                while(out_set == false) {
+            // If i is the output int then the next line arg is the output file
+            // Also no_args is set to true as there are no more arguments   
+            } else if (i == out_int) {
+                output_file = (char *)malloc((strlen(line_args[i+1])+1)*sizeof(char));
+                memset(output_file, 0, strlen(line_args[i+1])+1);
+                strncpy(output_file, line_args[i+1], strlen(line_args[i+1]));
+                no_args = true;
 
-                    // First we need another leading space loop to remove leading " "
-                    // We only need to go through the loop once, hence setting lead_in_space to false
-                    int lead_out_spc_comp = strncmp(&line[temp_pos]," ",1);
-                    while(lead_out_spc_comp == 0 && lead_out_space == true) {
-                        line = line + 1;
-                        lead_out_spc_comp = strncmp(&line[temp_pos]," ",1);
-                    }
-                    lead_out_space = false;
-
-                    // Only have to check for a space, they signal the end of the location
-                    int spc_comp = strncmp(&line[temp_pos]," ",1);
-                    if (spc_comp != 0) {
-                        temp_pos++;
-                    // Once the end of the command has been found, set the output bool to true
-                    // Allocate memory for output file, copy over the string, and move the line pointer
-                    } else {
-                        out_set = true;
-                        output_file = malloc(temp_pos+1);
-                        memset(output_file, 0, temp_pos+1);
-                        strncpy(output_file, line, temp_pos);
-                        line = line + temp_pos;
-                        temp_pos = 0;
-                        line_pos--;
-                    }
-                    line_pos++;
-                }
-
-            // In the case that the input ends with &, this ends the loop
-            } else if (and_comp == 0) {
-                cont = false;
-            
-            // This final statement is for the arguments
-            } else {
-
-                // Move pointer up 1 slot
-                line = line + 1;
-                line_pos = line_pos + 1;
-
-                // Loop finds the location and puts it in a var
-                while(arg_set == false) {
-                    printf("%d\n",temp_pos);
-                    // Only have to check for a space, they signal the end of the location
-                    int spc_comp = strncmp(&line[temp_pos]," ",1);
-                    if (spc_comp != 0) {
-                        temp_pos ++;
-
-                    // Once the end of the command has been found, set the arg bool to true
-                    // Allocate memory for temp arg, copy over the string, put it in the array
-                    // increment the arg counter and finally move the line pointer
-                    } else {
-                        arg_set = true;
-                        temp_arg = malloc(temp_pos+1);
-                        memset(temp_arg, 0, temp_pos+1);
-                        strncpy(temp_arg, line, temp_pos);
-                        args[arg_count] = strdup(temp_arg);
-                        arg_count++;
-                        line = line + temp_pos;
-                        temp_pos = 0;
-                        line_pos--;
-                    }
-                    line_pos++;
-                }
-
+            // If no_args is false, then there are still arguments to copy over to the array
+            } else if (no_args == false) {
+                args[i] = (char *)malloc((strlen(line_args[i])+1)*sizeof(char));
+                memset(args[i], 0, strlen(line_args[i])+1);
+                args[i] = strdup(line_args[i]);
+                args_count++;
             }
 
-            // Reset the arg bool
-            arg_set = false;
-            line_pos++;
         }
+
+        // The next slot in the args array must be NULL
+        args[args_count] = NULL;
+ 
 
         // These statements initialize the line vars if they weren't already
         if (cmd == NULL) {
@@ -337,23 +204,20 @@ int main(){
             memset(output_file, 0, 2);
         }
 
-        // if (cmd_set == true)
-        // {
-        //     printf("%s->cmd\n",cmd);
-        // }
-        // if (in_set == true)
-        // {
-        //     printf("%s->in\n",input_file);
-        // }
-        // if (out_set == true)
-        // {
-        //     printf("%s->out\n",output_file);
-        // }
+        if (cmd_set == true) {
+            printf("%s->cmd\n",cmd);
+        }
+        if (in_set == true) {
+            printf("%s->in\n",input_file);
+        }
+        if (out_set == true) {
+            printf("%s->out\n",output_file);
+        }
 
-        // for (int i = 0; i < arg_count; ++i)
-        // {
-        //     printf("%s->arg\n",args[i]);
-        // }
+        for (int i = 0; i < args_count; ++i)
+        {
+            printf("%s->arg\n",args[i]);
+        }
 
         // This checks to see what command was sent
         // First looking at comments and built-in commands
@@ -364,8 +228,7 @@ int main(){
         // First check to see if it is a comment or blank line - then print it out
         if (comment == true || blank_line == true) {
 
-            // In this case do nothing
-            //printf(": %s\n",line);  
+            // In this case do nothing 
 
         // Next check to see if it was the "cd" command
         } else if (cd_comp == 0) {
@@ -427,32 +290,33 @@ int main(){
             // If fork is successful, the value of pid will be 0 and the command will be executed
             pid_t childPid = fork();
             if(childPid == 0){
-
                 // Putting the input file into standard input
                 if (in_set == true) {
                     int input_file_int = open(input_file,O_RDONLY);
-                    // printf("%s\n","huh");
-                    //int in_check = dup2(input_file_int, 1);
-                    dup2(input_file_int, 1);
+                    printf("%s\n","huh");
+                    int in_check = dup2(input_file_int, 1);
+
                     //If the dup2 failed, set status to 1
-                    // if (in_check == -1) {
-                    //     printf("%s\n","didnt work");
-                    //     status = 1;
-                    // }
+                    if (in_check == -1) {
+                        printf("%s\n","didnt work");
+                        status = 1;
+                    }
                 }
 
                 // Putting the output file into standard output
                 if (out_set == true) {
                     int output_file_int = open(output_file,O_WRONLY);
-                    // printf("%s\n","huh");
+                    printf("%s\n","huh");
                     int out_check = dup2(output_file_int, 1);
+                    
                     // If the dup2 failed, set status to 1
                     if (out_check == -1) {
-                        // printf("%s\n","didnt work");
+                        printf("%s\n","didnt work");
                         status = 1;
-                        // printf("%d\n",status);
+                        printf("%d\n",status);
                     }
                 }
+
 
                 // Child process running the exec command
                 int cmd_status = execvp(cmd,args);
@@ -468,7 +332,7 @@ int main(){
 
                 // Parent process - waits for the child to finish
                 int childStatus;
-                // printf("%d child pid\n",childPid);
+                printf("%d child pid\n",childPid);
                 waitpid(childPid, &childStatus, 0);
 
                 // If the command finishes successfully, status is 0
