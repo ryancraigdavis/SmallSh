@@ -14,6 +14,7 @@
 #include <dirent.h>
 #include <limits.h>
 #include <signal.h>
+#include <sys/wait.h>
 
 // Signal Handler for Sig Stop - adapted from the lecture
 void int_handle(int sig_int){
