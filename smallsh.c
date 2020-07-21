@@ -15,29 +15,13 @@
 #include <limits.h>
 #include <signal.h>
 
-
 bool and_signal_ignore = false;
-
-// Signal Handler for Sig Stop - adapted from the lecture
-void int_handler(int sig_int){
-    char get_pid[15];
-    char str_sig[2];
-    sprintf(get_pid, "%d", getpid());
-    sprintf(str_sig, "%d", sig_int);
-
-    // in the child ctr c should do what it usually do
-    // in the parent we want it to ignore
-
-    //char* message = "SIGINT Test \n";
-  // We are using write rather than printf
-    write(STDOUT_FILENO, get_pid, strlen(get_pid));
-    write(STDOUT_FILENO, str_sig, strlen(get_pid));
-}
 
 void bg_handler(int sig_tstp){
 
     if (and_signal_ignore == false) {
-        char* message = "\n Entering foreground-only mode (& is now ignored)\n";
+        char* message = "\n Entering foreground-only mode (& is now ignored)\n: ";
+        fflush(stdout);
         and_signal_ignore = true;
 
         // We are using write rather than printf
@@ -45,7 +29,8 @@ void bg_handler(int sig_tstp){
 
     // If the bash is already in     
     } else {
-        char* message = "\n Exiting foreground-only mode\n";
+        char* message = "\n Exiting foreground-only mode\n: ";
+        fflush(stdout);
         and_signal_ignore = false;
 
         // We are using write rather than printf
@@ -58,25 +43,37 @@ void bg_handler(int sig_tstp){
 
 
 int main(){
-    struct sigaction SIGINT_action;
-    SIGINT_action.sa_handler = int_handler;
-    sigfillset(&SIGINT_action.sa_mask);
-    SIGINT_action.sa_flags = 0;
 
-    struct sigaction SIGSTP_struct;
-    SIGSTP_struct.sa_handler = bg_handler;
-    sigfillset(&SIGSTP_struct.sa_mask);
-    SIGSTP_struct.sa_flags = 0;
+    // These are the Signal handling Structs
+    // Parent SIG_INT struct - ignores SIG_INT
+    struct sigaction SIGINT_parent_struct;
+    SIGINT_parent_struct.sa_handler = SIG_IGN;
+    sigfillset(&SIGINT_parent_struct.sa_mask);
+    SIGINT_parent_struct.sa_flags = SA_RESTART;
 
-    struct sigaction SIGSTP_ign_struct;
-    SIGSTP_ign_struct.sa_handler = SIG_IGN;
-    sigfillset(&SIGSTP_ign_struct.sa_mask);
-    SIGSTP_ign_struct.sa_flags = 0;
+    // Parent SIG_TSTP struct - calls the bg_handler
+    struct sigaction SIGSTP_parent_struct;
+    SIGSTP_parent_struct.sa_handler = bg_handler;
+    sigfillset(&SIGSTP_parent_struct.sa_mask);
+    SIGSTP_parent_struct.sa_flags = SA_RESTART;
 
-    sigaction(SIGINT, &SIGINT_action, NULL);
-    sigaction(SIGTSTP, &SIGSTP_struct, NULL);
+    // Child SIG_TSTP struct - ignores SIG_TSTP
+    struct sigaction SIGSTP_child_struct;
+    SIGSTP_child_struct.sa_handler = SIG_IGN;
+    sigfillset(&SIGSTP_child_struct.sa_mask);
+    SIGSTP_child_struct.sa_flags = 0;
 
-    // a bool for whether or not the shell should exit
+    // Child SIG_INT struct - default action
+    struct sigaction SIGINT_child_struct;
+    SIGINT_child_struct.sa_handler = SIG_DFL;
+    sigfillset(&SIGINT_child_struct.sa_mask);
+    SIGINT_child_struct.sa_flags = 0;
+
+    // Sigaction calls for the parent sigint and sigtstp signals
+    sigaction(SIGINT, &SIGINT_parent_struct, NULL);
+    sigaction(SIGTSTP, &SIGSTP_parent_struct, NULL);
+
+    // A bool for whether or not the shell should exit
     bool exit_cmd = false;
 
     // The built-in status int
@@ -173,7 +170,6 @@ int main(){
                         strncat(line, doll_line, dollar_pos);
                         strcat(line, get_pid);
                         doll_line = doll_line + dollar_pos + 2;
-                        printf("%s\n",doll_line);
                     }
                     dollar_pos++;
                 }
@@ -371,7 +367,8 @@ int main(){
         // This prints out the most recent status
         } else if (status_comp == 0) {
             // Print out the most recent value of status
-            printf("Exit value %d\n",status);
+            printf("exit value %d\n",status);
+            fflush(stdout);
         
         // If none of the commands were seen above, then the command is a linux cmd
         // We need to fork a child and run the command
@@ -381,7 +378,9 @@ int main(){
             pid_t childPid = fork();
             if(childPid == 0){
 
-                sigaction(SIGTSTP, &SIGSTP_ign_struct, NULL);
+                // Sigaction child signal callers
+                sigaction(SIGINT, &SIGINT_child_struct, NULL);
+                sigaction(SIGTSTP, &SIGSTP_child_struct, NULL);
 
                 // Putting the input file into standard input
                 if (in_set == true) {
@@ -440,6 +439,51 @@ int main(){
 
             // If the & was included, this will now run in the background
             if (and_set == true && and_signal_ignore == false) {
+
+                if (in_set == false) {
+
+                    // Dev/null for background processes if an input wasn't defined
+                    int source_file = open("/dev/null", O_RDONLY);
+                    printf("%s\n","working");
+                    if (source_file == -1) { 
+                        printf("cannot open %s for input\n","/dev/null");
+                        fflush(stdout);
+                        status = 1;
+                        exit(1);
+                    }
+
+                    // Redirect stdin to source file
+                    int source_result = dup2(source_file, 0);
+                    if (source_result == -1) { 
+                        printf("cannot open %s for input\n","/dev/null");
+                        fflush(stdout);
+                        status = 1;
+                        exit(2);
+                    }
+                }
+
+                // Dev/null for background processes if an output wasn't defined
+                if (out_set == true) {
+
+                    // Open destination file
+                    int dest_file = open("/dev/null", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+                    if (dest_file == -1) { 
+                        printf("cannot open %s for output\n","/dev/null");
+                        fflush(stdout);
+                        status = 1;
+                        exit(1);
+                    }
+
+                    // Redirect stdout to source file
+                    int dest_result = dup2(dest_file, 1);
+                    if (dest_result == -1) { 
+                        printf("cannot open %s for output\n","/dev/null");
+                        fflush(stdout);
+                        status = 1;
+                        exit(2);
+                    }
+                }
+
                 printf("background pid is %d\n",childPid);
                 fflush(stdout);
                 int bgChildStatus;
@@ -461,6 +505,12 @@ int main(){
                 // If the command finishes successfully, status is 0
                 if (WIFEXITED(childStatus)) {
                     status = WEXITSTATUS(childStatus);
+                
+                // If child was killed by a signal, return that signal
+                } else if (WIFSIGNALED(childStatus)) {
+                    int signalTerm = WTERMSIG(signalTerm);
+                    printf("terminated by signal %d\n",signalTerm);
+                    fflush(stdout);
 
                 //Print an error message and set status to 1
                 } else {
