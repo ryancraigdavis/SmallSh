@@ -15,24 +15,66 @@
 #include <limits.h>
 #include <signal.h>
 
+
+bool and_signal_ignore = false;
+
 // Signal Handler for Sig Stop - adapted from the lecture
-void int_handle(int sig_int){
+void int_handler(int sig_int){
     char get_pid[15];
     char str_sig[2];
     sprintf(get_pid, "%d", getpid());
     sprintf(str_sig, "%d", sig_int);
-    char* message = "Caught SIGINT, sleeping for 10 seconds\n";
+
+    // in the child ctr c should do what it usually do
+    // in the parent we want it to ignore
+
+    //char* message = "SIGINT Test \n";
   // We are using write rather than printf
     write(STDOUT_FILENO, get_pid, strlen(get_pid));
     write(STDOUT_FILENO, str_sig, strlen(get_pid));
 }
 
+void bg_handler(int sig_tstp){
+
+    if (and_signal_ignore == false) {
+        char* message = "\n Entering foreground-only mode (& is now ignored)\n";
+        and_signal_ignore = true;
+
+        // We are using write rather than printf
+        write(STDOUT_FILENO, message, strlen(message));
+
+    // If the bash is already in     
+    } else {
+        char* message = "\n Exiting foreground-only mode\n";
+        and_signal_ignore = false;
+
+        // We are using write rather than printf
+        write(STDOUT_FILENO, message, strlen(message));
+    }
+
+  
+}
+
+
 
 int main(){
     struct sigaction SIGINT_action;
-    SIGINT_action.sa_handler = int_handle;
+    SIGINT_action.sa_handler = int_handler;
     sigfillset(&SIGINT_action.sa_mask);
     SIGINT_action.sa_flags = 0;
+
+    struct sigaction SIGSTP_struct;
+    SIGSTP_struct.sa_handler = bg_handler;
+    sigfillset(&SIGSTP_struct.sa_mask);
+    SIGSTP_struct.sa_flags = 0;
+
+    struct sigaction SIGSTP_ign_struct;
+    SIGSTP_ign_struct.sa_handler = SIG_IGN;
+    sigfillset(&SIGSTP_ign_struct.sa_mask);
+    SIGSTP_ign_struct.sa_flags = 0;
+
+    sigaction(SIGINT, &SIGINT_action, NULL);
+    sigaction(SIGTSTP, &SIGSTP_struct, NULL);
 
     // a bool for whether or not the shell should exit
     bool exit_cmd = false;
@@ -41,7 +83,8 @@ int main(){
     int status = 0;
 
     while(exit_cmd == false) {
-        sigaction(SIGINT, &SIGINT_action, NULL);
+        
+        //sigaction(SIGTSTP, &SIGSTP_ign_struct, NULL);
         // Variables for the prompt - line is the whole readin line and can be 2048 chars long
         // Cmd is the command to be executed, input and output files, and args - which is an
         // array of all of the arguments that can be passed in
@@ -82,11 +125,66 @@ int main(){
         char get_pid[15];
         sprintf(get_pid, "%d", getpid());
 
-        // Initialize
+        // Initialize line and dollar check line
+        char *doll_line = NULL;
+        doll_line = (char *)malloc((strlen(line_cr))*sizeof(char));
+        memset(doll_line, 0, strlen(line_cr));
+        memcpy(doll_line, line_cr, strlen(line_cr)-1);
+
+        // We need to first go through the line and see if there are any 
+        // "$$" that need to be converted to the PID
+        int dollar_pid_count = 0;
+        int dollar_pos = 0;
+        while(dollar_pos < strlen(doll_line)) {
+            int convert_pid = strncmp(&doll_line[dollar_pos],"$$",2);
+            if (convert_pid == 0) {
+                dollar_pid_count++;
+            }
+            dollar_pos++;
+        }
+
+        // Multiply the number of instances of $$ with the len of the pid
+        long pid_length = dollar_pid_count * strlen(get_pid);
+        dollar_pos = 0;
+
+        // Now create the line var with this extended length
         char *line = NULL;
-        line = (char *)malloc((strlen(line_cr))*sizeof(char));
-        memset(line, 0, strlen(line_cr));
-        memcpy(line, line_cr, strlen(line_cr)-1);
+        line = (char *)malloc((strlen(line_cr)+pid_length)*sizeof(char));
+        memset(line, 0, strlen(line_cr)+pid_length);
+
+        // If dollar_pid is < 1, that means no $$ were found, thus just copy over the
+        // input from line_cr
+        if (dollar_pid_count < 1) {
+            memcpy(line, line_cr, strlen(line_cr)-1);
+
+        } else {
+
+            // Start with a blank line
+            strcpy(line,"");
+
+            // For loop goes through each iteration of "$$"
+            for (int i = 0; i < dollar_pid_count; ++i) {
+                while(dollar_pos < strlen(doll_line)){
+
+                    // While loop goes through looking for $$, then concatenates
+                    // the string with the
+                    int convert_pid = strncmp(&doll_line[dollar_pos],"$$",2);
+                    if (convert_pid == 0) {
+                        strncat(line, doll_line, dollar_pos);
+                        strcat(line, get_pid);
+                        doll_line = doll_line + dollar_pos + 2;
+                        printf("%s\n",doll_line);
+                    }
+                    dollar_pos++;
+                }
+                dollar_pos = 0; 
+            }
+
+            // Finally concatenate the rest of the string if it isn't null
+            if (strlen(doll_line) != 0) {
+                strcat(line, doll_line);
+            }
+        }
 
         // Checking to see if a comment was sent
         int comment_comp = strncmp(&line[0],"#",1);
@@ -211,21 +309,6 @@ int main(){
             memset(output_file, 0, 2);
         }
 
-        // if (cmd_set == true) {
-        //     printf("%s->cmd\n",cmd);
-        // }
-        // if (in_set == true) {
-        //     printf("%s->in\n",input_file);
-        // }
-        // if (out_set == true) {
-        //     printf("%s->out\n",output_file);
-        // }
-
-        // for (int i = 0; i < args_count; ++i)
-        // {
-        //     printf("%s->arg\n",args[i]);
-        // }
-
         // This checks to see what command was sent
         // First looking at comments and built-in commands
         int cd_comp = strcmp(cmd,"cd");
@@ -298,6 +381,8 @@ int main(){
             pid_t childPid = fork();
             if(childPid == 0){
 
+                sigaction(SIGTSTP, &SIGSTP_ign_struct, NULL);
+
                 // Putting the input file into standard input
                 if (in_set == true) {
 
@@ -354,7 +439,7 @@ int main(){
             }
 
             // If the & was included, this will now run in the background
-            if (and_set == true) {
+            if (and_set == true && and_signal_ignore == false) {
                 printf("background pid is %d\n",childPid);
                 fflush(stdout);
                 int bgChildStatus;
