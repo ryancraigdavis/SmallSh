@@ -293,7 +293,7 @@ int main(){
 
                 // Loop finds the location and puts it in a var
                 while(arg_set == false) {
-
+                    printf("%d\n",temp_pos);
                     // Only have to check for a space, they signal the end of the location
                     int spc_comp = strncmp(&line[temp_pos]," ",1);
                     if (spc_comp != 0) {
