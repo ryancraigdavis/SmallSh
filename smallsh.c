@@ -15,15 +15,29 @@
 #include <limits.h>
 #include <signal.h>
 
+// Signal Handler for Sig Stop - adapted from the lecture
+void int_handle(int sig_int){
+    char* message = "Caught SIGINT, sleeping for 10 seconds\n";
+  // We are using write rather than printf
+    write(STDOUT_FILENO, message, 40);
+    sleep(10);
+}
+
+
 int main(){
+    struct sigaction SIGINT_action;
+    SIGINT_action.sa_handler = int_handle;
+    sigfillset(&SIGINT_action.sa_mask);
+    SIGINT_action.sa_flags = 0;
+
     // a bool for whether or not the shell should exit
     bool exit_cmd = false;
 
-    // Get status is used to see if WIFEXITED is true; the built-in status int
-    int get_status;
+    // The built-in status int
     int status = 0;
 
     while(exit_cmd == false) {
+        sigaction(SIGINT, &SIGINT_action, NULL);
         // Variables for the prompt - line is the whole readin line and can be 2048 chars long
         // Cmd is the command to be executed, input and output files, and args - which is an
         // array of all of the arguments that can be passed in
@@ -406,20 +420,10 @@ int main(){
             printf("Exit value %d\n",status);
         
         // If none of the commands were seen above, then the command is a linux cmd
-        // We need to fork of a child and run the command
+        // We need to fork a child and run the command
         } else {
-            // pid_t spawnpid = -5;
-            // // If fork is successful, the value of spawnpid will be 0 in the child, the child's pid in the parent
-            // spawnpid = fork();
-            // printf("I am a parent! %d\n",getpid());
-            // if (fork() == 0) {
-            //     printf("I am a child! %s\n",cmd);
-            //     // int roger = execvp(cmd,args);
-            //     int roger = execlp(cmd,"ls","-al",NULL);
-            // } 
 
             // If fork is successful, the value of pid will be 0 and the command will be executed
-            // Code adapted from class lectures
             pid_t childPid = fork();
             if(childPid == 0){
 
@@ -451,11 +455,11 @@ int main(){
 
                 // Child process running the exec command
                 int cmd_status = execvp(cmd,args);
+                
 
                 // If cmd_status is -1, that's because a bad or non-existant command was sent
-                // Print an error message and terminate the process
+                // Terminates the process
                 if (cmd_status == -1) {
-                    printf("%s: no such file or directory\n",cmd);
                     kill(getpid(),SIGTERM);
                 }
 
@@ -466,9 +470,14 @@ int main(){
                 printf("%d child pid\n",childPid);
                 waitpid(childPid, &childStatus, 0);
 
-                if ( WIFEXITED(childStatus) ) {
+                // If the command finishes successfully, status is 0
+                if (WIFEXITED(childStatus)) {
                     status = WEXITSTATUS(childStatus);
-                    printf("Status: %d\n",status);
+
+                //Print an error message and set status to 1
+                } else {
+                    printf("%s: no such file or directory\n",cmd);
+                    status = 1;
                 }
                 
             
