@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <stdbool.h>
 #include <dirent.h>
 #include <limits.h>
@@ -35,12 +36,8 @@ void bg_handler(int sig_tstp){
 
         // We are using write rather than printf
         write(STDOUT_FILENO, message, strlen(message));
-    }
-
-  
+    } 
 }
-
-
 
 int main(){
 
@@ -79,9 +76,39 @@ int main(){
     // The built-in status int
     int status = 0;
 
+    // Array of background child process
+    int bg_child_pids[50];
+    int bg_child_count = 0;
+    pid_t bg_pid;
+    int bg_child_status;
+
+    // Main while loop for the shell
     while(exit_cmd == false) {
+
+        // Background reaping waitpid function that checks
+        // at the top of the loop is a child needs to be reaped
+        // got help from reading this post:
+        // stackoverflow.com/questions/900411/how-to-properly-wait-for-foreground-background-processes-in-my-own-shell-in-c
+        bg_pid = waitpid(-1, &bg_child_status, WNOHANG);
+        if (bg_pid > 0) {
+
+            // If the command finishes successfully, status is 0
+            if (WIFEXITED(bg_child_status)) {
+                status = WEXITSTATUS(bg_child_status);
+                printf("background pid %d is done: exit value %d\n", bg_pid, status);
+                fflush(stdout);
+            
+            // If child was killed by a signal, return that signal
+            } else if (WIFSIGNALED(bg_child_status)) {
+                status = WTERMSIG(bg_child_status);
+
+                // Post status of the signal termination
+                printf("background pid %d is done: terminated by signal %d\n", bg_pid, status);
+                fflush(stdout);
+
+            }
+        }   
         
-        //sigaction(SIGTSTP, &SIGSTP_ign_struct, NULL);
         // Variables for the prompt - line is the whole readin line and can be 2048 chars long
         // Cmd is the command to be executed, input and output files, and args - which is an
         // array of all of the arguments that can be passed in
@@ -426,25 +453,10 @@ int main(){
                     }
                 }
 
-
-                // Child process running the exec command
-                int cmd_status = execvp(cmd,args);
-
-                // If cmd_status is -1, that's because a bad or non-existant command was sent
-                // Terminates the process
-                if (cmd_status == -1) {
-                    kill(getpid(),SIGTERM);
-                }
-            }
-
-            // If the & was included, this will now run in the background
-            if (and_set == true && and_signal_ignore == false) {
-
-                if (in_set == false) {
+                if (in_set == false && and_set == true && and_signal_ignore == false) {
 
                     // Dev/null for background processes if an input wasn't defined
                     int source_file = open("/dev/null", O_RDONLY);
-                    printf("%s\n","working");
                     if (source_file == -1) { 
                         printf("cannot open %s for input\n","/dev/null");
                         fflush(stdout);
@@ -463,7 +475,7 @@ int main(){
                 }
 
                 // Dev/null for background processes if an output wasn't defined
-                if (out_set == true) {
+                if (out_set == false && and_set == true && and_signal_ignore == false) {
 
                     // Open destination file
                     int dest_file = open("/dev/null", O_WRONLY | O_CREAT | O_TRUNC, 0644);
@@ -484,16 +496,24 @@ int main(){
                     }
                 }
 
+                // Child process running the exec command
+                int cmd_status = execvp(cmd,args);
+
+                // If cmd_status is -1, that's because a bad or non-existant command was sent
+                // Terminates the process
+                if (cmd_status == -1) {
+                    kill(getpid(),SIGTERM);
+                }
+            }
+
+            // If the & was included, this will now run in the background
+            if (and_set == true && and_signal_ignore == false) {
+
+                // Print the PID and wait for the BG process with WNOHANG
                 printf("background pid is %d\n",childPid);
                 fflush(stdout);
                 int bgChildStatus;
                 waitpid(childPid, &bgChildStatus, WNOHANG);
-                if (WIFEXITED(bgChildStatus)) {
-                    int bgStatus = WEXITSTATUS(bgChildStatus);
-                //Print an error message and set status to 1
-
-                // need to redirect stdin and stdout
-                }
 
             // If no & was included, parent will wait for completion
             } else{
@@ -506,27 +526,28 @@ int main(){
                 if (WIFEXITED(childStatus)) {
                     status = WEXITSTATUS(childStatus);
                 
-                // If child was killed by a signal, return that signal
+                // If child was killed by a signal, return that signal to status
                 } else if (WIFSIGNALED(childStatus)) {
-                    int signalTerm = WTERMSIG(signalTerm);
-                    printf("terminated by signal %d\n",signalTerm);
-                    fflush(stdout);
+                    status = WTERMSIG(childStatus);
 
-                //Print an error message and set status to 1
-                } else {
-                    printf("%s: no such file or directory\n",cmd);
-                    fflush(stdout);
-                    status = 1;
-                    //printf("Child %d exited abnormally due to signal %d\n", childPid, WTERMSIG(childStatus));
-                }
-                
-            
+                    // Status of 15 means it was a sigterm, bad command
+                    if (status == 15) {
+                        printf("%s: no such file or directory\n",cmd);
+                        fflush(stdout);
+
+                    // Otherwise post the signal
+                    } else {
+                        printf("terminated by signal %d\n",status);
+                        fflush(stdout);
+                    }
+                } 
             }
-
         }
     }
 
-    
+    // If the while loop has been exited, wait will wait 
+    // while the child processes are cleaned up
+    wait(NULL);
     
     return 0;
 
