@@ -16,10 +16,13 @@
 #include <limits.h>
 #include <signal.h>
 
+// Boolean for checking foreground/background mode
 bool and_signal_ignore = false;
 
+// This is the handler for the SIGTSTP ctrl-z signal
 void bg_handler(int sig_tstp){
 
+    // If the and signal is false, change it to true - now & is ignored
     if (and_signal_ignore == false) {
         char* message = "\n Entering foreground-only mode (& is now ignored)\n: ";
         fflush(stdout);
@@ -28,7 +31,7 @@ void bg_handler(int sig_tstp){
         // We are using write rather than printf
         write(STDOUT_FILENO, message, strlen(message));
 
-    // If the bash is already in     
+    // If the bash is already in foreground mode, switch it back    
     } else {
         char* message = "\n Exiting foreground-only mode\n: ";
         fflush(stdout);
