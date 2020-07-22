@@ -157,6 +157,7 @@ int main(){
         doll_line = (char *)malloc((strlen(line_cr))*sizeof(char));
         memset(doll_line, 0, strlen(line_cr));
         memcpy(doll_line, line_cr, strlen(line_cr)-1);
+        free(line_cr);
 
         // We need to first go through the line and see if there are any 
         // "$$" that need to be converted to the PID
@@ -548,8 +549,6 @@ int main(){
         }
     }
 
-    free(line);
-    free(line_cr);
     // If the while loop has been exited, wait will wait 
     // while the child processes are cleaned up
     wait(NULL);
